@@ -1,4 +1,4 @@
-// Load the corpus and generate a Markov chain model with positional encoding
+// Load the corpus and generate a Markov chain model with positional encoding and multi-head attention
 async function loadCorpusAndGenerateModel(n = 2) {
   const response = await fetch('corpus.txt');
   const text = await response.text();
@@ -14,8 +14,8 @@ function buildMarkovChainWithPositionalEncoding(text, n = 2) {
       const key = words.slice(i, i + n).join(' ').toLowerCase();
       const nextWord = words[i + n] ? words[i + n].toLowerCase() : null;
       
-      // Calculate positional weight
-      const positionWeight = 1 / (i + 1);  // Higher weight for words at the start
+      // Calculate positional weight for encoding
+      const positionWeight = 1 / (i + 1);
 
       if (!markovChain[key]) {
           markovChain[key] = [];
@@ -29,19 +29,22 @@ function buildMarkovChainWithPositionalEncoding(text, n = 2) {
   return markovChain;
 }
 
-// Generate a sentence based on the Markov chain model with weighted word selection
-function generateSentence(chain, creativity = 0.7) {
+// Generate a sentence based on the Markov chain model using multi-head attention
+function generateSentenceWithAttention(chain, creativity = 0.7, numHeads = 4) {
   const keys = Object.keys(chain);
   let key = keys[Math.floor(Math.random() * keys.length)];  // Start with a random bigram
   const sentence = key.split(' ');
 
-  for (let i = 0; i < 20; i++) {  // Limit length to control sentence structure
+  for (let i = 0; i < 20; i++) {  // Limit sentence length for control
       const nextWords = chain[key] || [];
       if (nextWords.length === 0) break;
 
-      // Calculate weighted selection based on position and creativity
-      const nextWord = selectWeightedRandomWord(nextWords, creativity);
+      // Get attention scores for each word using multiple heads
+      const attentionScores = calculateAttentionScores(nextWords, numHeads, creativity);
       
+      // Select the next word based on the attention-weighted probabilities
+      const nextWord = selectWordWithAttention(attentionScores);
+
       sentence.push(nextWord);
       
       // Update the key to the last bigram for continuity
@@ -51,22 +54,38 @@ function generateSentence(chain, creativity = 0.7) {
   return capitalize(sentence.join(' ')) + '.';
 }
 
-// Select the next word based on weighted random selection
-function selectWeightedRandomWord(words, creativity) {
-  const weightedWords = words.map(item => item.weight);
-  const totalWeight = weightedWords.reduce((acc, w) => acc + w ** creativity, 0);
+// Calculate attention scores for each word using multiple attention heads
+function calculateAttentionScores(words, numHeads, creativity) {
+  return words.map(wordObj => {
+      let attentionScore = 0;
 
-  // Select a word based on adjusted weights
-  let threshold = Math.random() * totalWeight;
-  for (let i = 0; i < words.length; i++) {
-      threshold -= (words[i].weight ** creativity);
+      for (let head = 0; head < numHeads; head++) {
+          // Each head gives a score based on position and creativity
+          const headFactor = (head + 1) / numHeads;
+          attentionScore += headFactor * (wordObj.weight ** creativity);
+      }
+
+      return {
+          word: wordObj.word,
+          score: attentionScore / numHeads  // Average across heads
+      };
+  });
+}
+
+// Select the next word based on weighted attention scores
+function selectWordWithAttention(attentionScores) {
+  const totalScore = attentionScores.reduce((acc, obj) => acc + obj.score, 0);
+  let threshold = Math.random() * totalScore;
+
+  for (const obj of attentionScores) {
+      threshold -= obj.score;
       if (threshold <= 0) {
-          return words[i].word;
+          return obj.word;
       }
   }
 
-  // Fallback to the last word if no selection was made
-  return words[words.length - 1].word;
+  // Fallback in case no selection was made
+  return attentionScores[attentionScores.length - 1].word;
 }
 
 // Capitalize the first letter of the sentence
@@ -77,7 +96,7 @@ function capitalize(text) {
 // Display generated text on the page
 async function displayGeneratedText() {
   const chain = await loadCorpusAndGenerateModel(2);
-  const sentence = generateSentence(chain, 0.7);
+  const sentence = generateSentenceWithAttention(chain, 0.7, 4);
   document.getElementById('output').innerText = sentence;
 }
 
