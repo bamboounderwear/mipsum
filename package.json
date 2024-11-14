@@ -1,0 +1,25 @@
+{
+    "name": "simple-todo-app",
+    "version": "1.0.0",
+    "description": "A simple single-file to-do list app with JSON file storage",
+    "main": "app.js",
+    "scripts": {
+      "start": "node app.js"
+    },
+    "dependencies": {
+      "express": "^4.18.2"
+    },
+    "engines": {
+      "node": ">=14.0.0"
+    },
+    "keywords": [
+      "todo",
+      "express",
+      "json",
+      "single-file",
+      "app"
+    ],
+    "author": "Your Name",
+    "license": "MIT"
+  }
+  
